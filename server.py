@@ -15,10 +15,12 @@ def _clean(topic: str) -> str:
 def add_flashcard(topic: str, question: str, answer: str) -> str:
     """Save a flashcard under a topic, e.g. 'operating systems'."""
     topic = _clean(topic)
+    if not topic or not question.strip() or not answer.strip():
+        return "Topic, question and answer cannot be empty."
     with db.get_conn() as conn:
         conn.execute(
             "INSERT INTO flashcards (topic, question, answer) VALUES (?, ?, ?)",
-            (topic, question, answer),
+            (topic, question.strip(), answer.strip()),
         )
         count = conn.execute(
             "SELECT COUNT(*) FROM flashcards WHERE topic = ?", (topic,)
