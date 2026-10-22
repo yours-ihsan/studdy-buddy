@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Study Buddy: simulated Alexa+</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0f1419; color: #e6e6e6;
+         max-width: 560px; margin: 2rem auto; padding: 0 1rem; }
+  #log { height: 380px; overflow-y: auto; background: #1a212b; border-radius: 8px; padding: 1rem; }
+  .you { text-align: right; color: #7cc4ff; margin: .5rem 0; }
+  .bot { color: #b8f5b8; margin: .5rem 0; }
+  #row { display: flex; gap: .5rem; margin-top: .75rem; }
+  input { flex: 1; padding: .6rem; border-radius: 6px; border: 1px solid #333; background: #11161d; color: inherit; }
+  button { padding: .6rem 1rem; border: 0; border-radius: 6px; background: #1d9bf0; color: #fff; cursor: pointer; }
+  small { color: #888; }
+</style>
+</head>
+<body>
+<h2>Study Buddy (simulated Alexa+)</h2>
+<div id="log"></div>
+<div id="row">
+  <input id="msg" placeholder="quiz me on os" autofocus>
+  <button id="send">Send</button>
+</div>
+<small>Try: add os | What is a process? | A running program &middot; quiz me on os &middot; answer &middot; topics</small>
+<script>
+const log = document.getElementById("log");
+const msg = document.getElementById("msg");
+function add(cls, text) {
+  const d = document.createElement("div");
+  d.className = cls; d.textContent = text;
+  log.appendChild(d); log.scrollTop = log.scrollHeight;
+}
+async function send() {
+  const text = msg.value.trim();
+  if (!text) return;
+  add("you", text); msg.value = "";
+  try {
+    const r = await fetch("/chat", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }) });
+    add("bot", (await r.json()).reply);
+  } catch (e) { add("bot", "Error: " + e); }
+}
+document.getElementById("send").onclick = send;
+msg.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
+</script>
+</body>
+</html>
