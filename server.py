@@ -1,14 +1,54 @@
-from datetime import datetime
-
 from mcp.server import MCPServer
 
+import db
+
 mcp = MCPServer("study-buddy")
+db.init_db()
+
+
+def _clean(topic: str) -> str:
+    """Normalise topics so 'OS', 'os ' and 'Os' all match."""
+    return topic.strip().lower()
 
 
 @mcp.tool()
-def current_time() -> str:
-    """Return the current server time."""
-    return datetime.now().isoformat()
+def add_flashcard(topic: str, question: str, answer: str) -> str:
+    """Save a flashcard under a topic, e.g. 'operating systems'."""
+    topic = _clean(topic)
+    with db.get_conn() as conn:
+        conn.execute(
+            "INSERT INTO flashcards (topic, question, answer) VALUES (?, ?, ?)",
+            (topic, question, answer),
+        )
+        count = conn.execute(
+            "SELECT COUNT(*) FROM flashcards WHERE topic = ?", (topic,)
+        ).fetchone()[0]
+    return f"Saved. You now have {count} card(s) on {topic}."
+
+
+@mcp.tool()
+def quiz_me(topic: str) -> dict:
+    """Return one random flashcard (question and answer) for a topic."""
+    topic = _clean(topic)
+    with db.get_conn() as conn:
+        row = conn.execute(
+            "SELECT question, answer FROM flashcards "
+            "WHERE topic = ? ORDER BY RANDOM() LIMIT 1",
+            (topic,),
+        ).fetchone()
+    if row is None:
+        return {"error": f"No cards found for '{topic}'. Add some first."}
+    return {"question": row["question"], "answer": row["answer"]}
+
+
+@mcp.tool()
+def list_topics() -> list[str]:
+    """List every topic that has at least one flashcard."""
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT topic FROM flashcards ORDER BY topic"
+        ).fetchall()
+    return [r["topic"] for r in rows]
 
 
 if __name__ == "__main__":
