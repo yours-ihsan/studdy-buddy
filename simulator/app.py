@@ -1,4 +1,6 @@
 import json
+from collections import deque
+from datetime import datetime, timezone
 from pathlib import Path
 
 import uvicorn
@@ -12,6 +14,7 @@ HERE = Path(__file__).parent
 
 app = FastAPI()
 last_answer = ""
+activity = deque(maxlen=100)
 
 
 class Chat(BaseModel):
@@ -38,13 +41,40 @@ def unwrap(result):
 
 
 async def call(tool: str, args: dict):
-    async with Client(MCP_URL) as client:
-        return unwrap(await client.call_tool(tool, args))
+    entry = {
+        "time": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+        "tool": tool,
+        "arguments": args,
+    }
+    try:
+        async with Client(MCP_URL) as client:
+            result = await client.call_tool(tool, args)
+        value = unwrap(result)
+        if getattr(result, "is_error", getattr(result, "isError", False)):
+            entry.update(status="failure", summary=_summary(value))
+        else:
+            entry.update(status="success", summary=_summary(value))
+        activity.appendleft(entry)
+        return value
+    except Exception as exc:
+        entry.update(status="failure", summary=f"{type(exc).__name__}: {exc}")
+        activity.appendleft(entry)
+        raise
+
+
+def _summary(value) -> str:
+    summary = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False, default=str)
+    return summary if len(summary) <= 240 else summary[:237] + "..."
 
 
 @app.get("/")
 def index():
     return FileResponse(HERE / "index.html")
+
+
+@app.get("/activity")
+def get_activity():
+    return list(activity)
 
 
 @app.post("/chat")

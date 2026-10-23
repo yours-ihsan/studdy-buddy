@@ -48,3 +48,12 @@ def test_missing_topic_gives_error():
 def test_list_topics():
     call("add_flashcard", {"topic": "networking", "question": "Q", "answer": "A"})
     assert "networking" in call("list_topics", {})
+
+
+def test_connection_closes_after_exception():
+    with pytest.raises(RuntimeError, match="expected failure"):
+        with db.get_conn() as conn:
+            raise RuntimeError("expected failure")
+
+    with pytest.raises(Exception):
+        conn.execute("SELECT 1")

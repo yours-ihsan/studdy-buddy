@@ -128,15 +128,19 @@ let topic = "", has = false, flipped = false, st = {seen:0, ok:0, streak:0};
 function toast(s){const t=$("toast");t.textContent=s;t.classList.add("show");clearTimeout(toast.i);toast.i=setTimeout(()=>t.classList.remove("show"),2400)}
 function say(cls,text){const d=document.createElement("div");d.className=cls;d.textContent=text;$("log").appendChild(d);$("log").scrollTop=$("log").scrollHeight}
 function speak(s){if($("voice").checked&&window.speechSynthesis){speechSynthesis.cancel();speechSynthesis.speak(new SpeechSynthesisUtterance(s))}}
-function logCall(tool,args,reply){
-  const d=document.createElement("div");d.className="call";
-  const h=document.createElement("b");h.textContent=new Date().toLocaleTimeString()+"  "+tool+"("+args+")";
-  const r=document.createElement("div");r.textContent="-> "+reply;
-  d.append(h,r);$("calls").prepend(d);
-}
-async function call(tool,args,message){
+async function chat(message){
   const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message})});
-  const reply=(await r.json()).reply;logCall(tool,args,reply);return reply;
+  const reply=(await r.json()).reply;refreshActivity();return reply;
+}
+async function refreshActivity(){
+  try{
+    const records=await (await fetch("/activity")).json();const box=$("calls");box.replaceChildren();
+    records.forEach(item=>{
+      const d=document.createElement("div");d.className="call";
+      const h=document.createElement("b");h.textContent=`${new Date(item.time).toLocaleTimeString()}  ${item.tool}(${JSON.stringify(item.arguments)}) — ${item.status}`;
+      const r=document.createElement("div");r.textContent="-> "+item.summary;d.append(h,r);box.appendChild(d);
+    });
+  }catch(e){}
 }
 const isErr=s=>/^(No cards|Could not reach|Use:|Try:|Ask for)/.test(s);
 
@@ -151,7 +155,7 @@ function setButtons(){
 }
 
 async function loadTopics(){
-  const reply=await call("list_topics","","topics");
+  const reply=await chat("topics");
   const up=!reply.startsWith("Could not reach");
   $("dot").classList.toggle("on",up);
   $("status").textContent=up?"MCP server connected":"MCP server offline";
@@ -166,7 +170,7 @@ async function loadTopics(){
 
 async function quiz(t){
   if(!t)return;
-  const reply=await call("quiz_me",JSON.stringify(t),"quiz me on "+t);
+  const reply=await chat("quiz me on "+t);
   if(isErr(reply)){toast(reply);return}
   topic=t;has=true;flipped=false;
   $("card").classList.remove("flipped");
@@ -176,7 +180,7 @@ async function quiz(t){
 }
 async function reveal(){
   if(!has||flipped)return;
-  const reply=await call("show_answer","","answer");
+  const reply=await chat("answer");
   $("a").textContent=reply;flipped=true;$("card").classList.add("flipped");setButtons();speak(reply);
 }
 function grade(good){
@@ -191,7 +195,7 @@ $("save").onclick=async()=>{
   const t=$("fT").value.trim(),q=$("fQ").value.trim(),a=$("fA").value.trim();
   if(!t||!q||!a){toast("Fill in topic, question and answer.");return}
   if([t,q,a].some(x=>x.includes("|"))){toast("Please avoid the | character.");return}
-  toast(await call("add_flashcard",JSON.stringify(t),`add ${t} | ${q} | ${a}`));
+  toast(await chat(`add ${t} | ${q} | ${a}`));
   $("fQ").value="";$("fA").value="";loadTopics();
 };
 

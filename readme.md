@@ -1,5 +1,7 @@
 # Study Buddy MCP
 
+![tests](https://github.com/yours-ihsan/studdy-buddy/actions/workflows/ci.yml/badge.svg)
+
 A self-hosted [MCP](https://modelcontextprotocol.io) server that lets an AI
 assistant create flashcards and quiz you on them. Built for the Amazon
 developer hackathon, **Alexa+ track** (simulated-experience path).
